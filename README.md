@@ -1,64 +1,98 @@
 # Codex Thread Titler
 
-一个为 Codex 任务生成中文标题候选的本地插件。它在首次回复正文末尾自然附上三个标题选项，并在用户回复 A、B 或 C 后重命名当前任务。
+Codex Thread Titler is a local Codex plugin that adds three concise title choices to the end of the first response in a new task. After you reply with `A`, `B`, or `C`, the plugin applies the selected title to the current task.
 
-## 解决的问题
+It is designed for people who manage many Codex tasks and want titles that preserve why each conversation started—not generic summaries of what happened along the way.
 
-当项目中的任务越来越多时，Codex 默认显示的首条消息摘要或过程型标题很难帮助用户快速辨认内容。这个插件优先保留：
+## Features
 
-- 对话最初的核心对象；
-- 用户开启对话的原始意图；
-- 真正想判断、获得、改变或避免的问题。
+- Appends title choices to the first response without hiding or collapsing the main answer.
+- Preserves the conversation's original motivation and the problem to be resolved.
+- Produces three distinct Chinese title candidates.
+- Renames the task only after an explicit `A`, `B`, or `C` selection.
+- Supports regenerating the candidates or skipping the title step.
+- Runs locally and does not access the network.
 
-标题会避开“从……寻找……”“从……延伸……”等过程性表达，优先采用具体对象与关键问题、目标或产物的组合。
+## Title style
 
-## 使用方式
+The plugin favors compact object, goal, or question phrases. A useful title should make the task recognizable at a glance when it appears beside many other conversations.
 
-新建 Codex 任务并正常发送第一条消息。插件会让 Codex 完整回答原问题，然后在同一条回复末尾附加：
+It avoids:
+
+- Process-oriented wording such as “explore,” “discuss,” or “find out.”
+- Redundant lead-in verbs such as “clarify,” “reduce,” or “solve.”
+- Colons, dashes, task-type labels, implementation steps, and temporary solutions.
+- Titles based only on the latest message when the original request provides better context.
+
+Examples:
+
+| Avoid | Prefer |
+| --- | --- |
+| Keep accurate titles for Codex conversations | Accurate Codex conversation titles |
+| Find out whether the free plan limits user conversion | Whether the free plan limits user conversion |
+| Reduce the difficulty of identifying conversations across growing projects | Distinguishing conversations across multiple projects |
+
+## Usage
+
+1. Start a new Codex task and send your first message normally.
+2. Codex answers the request in full.
+3. The same response ends with three choices:
 
 ```text
-对话标题
+Conversation titles
 
-A. <标题>
-B. <标题>
-C. <标题>
+A. <title>
+B. <title>
+C. <title>
 
-请回复 A、B 或 C。
+Reply with A, B, or C.
 ```
 
-回复 A、B 或 C 后，Codex 会应用对应标题。也可以回复“重新生成”获得新候选，或回复“跳过”。
+4. Reply with `A`, `B`, or `C` to apply that title.
 
-## 工作方式
+You can also ask to regenerate the candidates or reply with “skip.”
 
-- `UserPromptSubmit` 在第一条消息提交时注入标题生成要求；
-- `Stop` 只读取并保存回答末尾的三个候选，不阻断正文，也不创建额外请求；
-- 候选状态保存在 Codex 提供的 `PLUGIN_DATA` 目录；
-- 插件不解析不稳定的会话 transcript，也不访问网络。
+## Hook permissions
 
-插件 Hook 首次安装或定义变化后，需要在 Codex 的 `/hooks` 页面中信任并启用 `UserPromptSubmit` 和 `Stop`。
+After the first installation—or whenever the hook definition changes—open `/hooks` in Codex and review, trust, and enable both hooks used by this plugin:
 
-## 项目结构
+- `UserPromptSubmit`
+- `Stop`
+
+The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
+
+## How it works
+
+- `UserPromptSubmit` injects the title-generation instruction when the first user message is submitted.
+- Codex completes the original request and appends the three title choices to the same response.
+- `Stop` captures those choices without blocking the response or starting a continuation request.
+- Candidate state is stored in the Codex-provided `PLUGIN_DATA` directory.
+- The plugin does not parse unstable conversation transcripts or make network requests.
+
+## Project structure
 
 ```text
-.codex-plugin/plugin.json                 插件清单
-hooks/hooks.json                          Hook 定义
-scripts/thread_titler_hook.py             Hook 实现
-skills/codex-thread-titler/SKILL.md       手动标题技能
-tests/test_thread_titler_hook.py          行为测试
+.codex-plugin/plugin.json                 Plugin manifest
+hooks/hooks.json                          Hook definitions
+scripts/thread_titler_hook.py             Hook implementation
+skills/codex-thread-titler/SKILL.md       Manual title skill
+tests/test_thread_titler_hook.py          Behavior tests
 ```
 
-## 本地验证
+## Development
+
+Run the behavior tests:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-如本机包含 Codex 的 `plugin-creator` 技能，还可以运行插件结构验证：
+If the Codex `plugin-creator` skill is available locally, validate the plugin structure with:
 
 ```bash
 python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
 ```
 
-## 当前状态
+## 中文简介
 
-这是正在迭代的个人插件。公开发布前还需要确定许可证，并在 GitHub 仓库地址确定后补充面向其他用户的安装说明。
+Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个中文标题选项。标题优先保留用户开启对话的出发点与真正想解决的问题，而不是复述讨论过程。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务，方便在多个项目和大量对话中快速辨认内容。
