@@ -1,0 +1,29 @@
+{
+  "description": "Append three task-title choices to the first answer and capture them without continuing the turn.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/thread_titler_hook.py\"",
+            "timeout": 5,
+            "statusMessage": "准备对话标题选项"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/thread_titler_hook.py\"",
+            "timeout": 5,
+            "statusMessage": "记录对话标题备选"
+          }
+        ]
+      }
+    ]
+  }
+}
