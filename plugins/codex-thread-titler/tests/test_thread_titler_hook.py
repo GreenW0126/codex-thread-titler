@@ -4,9 +4,11 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "thread_titler_hook.py"
@@ -150,6 +152,51 @@ C. 首轮回复自然附带标题选项"""
 
         self.assertIn("标题乙", context)
         self.assertEqual(HOOK.load_state(self.path)["phase"], "done")
+
+    def test_diagnostics_exclude_conversation_content(self) -> None:
+        root = Path(self.tempdir.name)
+        secret_prompt = "private conversation text"
+        secret_title = "private selected title"
+
+        first_event = {
+            "session_id": "session-containing-sensitive-id",
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": secret_prompt,
+        }
+        stop_event = {
+            "session_id": "session-containing-sensitive-id",
+            "hook_event_name": "Stop",
+            "last_assistant_message": (
+                f"A. {secret_title} A\nB. {secret_title} B\nC. {secret_title} C"
+            ),
+        }
+        with mock.patch.dict(os.environ, {"PLUGIN_DATA": str(root)}):
+            with mock.patch.object(HOOK.sys, "stdin", io.StringIO(json.dumps(first_event))):
+                self.capture(HOOK.main)
+            with mock.patch.object(HOOK.sys, "stdin", io.StringIO(json.dumps(stop_event))):
+                self.capture(HOOK.main)
+
+        diagnostic = (root / "diagnostics.jsonl").read_text(encoding="utf-8")
+        records = [json.loads(line) for line in diagnostic.splitlines()]
+        self.assertNotIn(secret_prompt, diagnostic)
+        self.assertNotIn(secret_title, diagnostic)
+        self.assertNotIn("session-containing-sensitive-id", diagnostic)
+        self.assertEqual(records[0]["event"], "UserPromptSubmit")
+        self.assertEqual(records[0]["outcome"], "title_context_injected")
+        self.assertEqual(records[1]["outcome"], "title_candidates_captured")
+        self.assertTrue(all(len(record["session"]) == 12 for record in records))
+
+    def test_diagnostics_rotate_without_interrupting_hooks(self) -> None:
+        root = Path(self.tempdir.name)
+        path = root / "diagnostics.jsonl"
+        path.write_bytes(b"x" * HOOK.MAX_DIAGNOSTIC_BYTES)
+
+        HOOK.write_diagnostic(root, "session", "Stop", "title_candidates_captured", None)
+
+        self.assertTrue((root / "diagnostics.previous.jsonl").exists())
+        self.assertLess(path.stat().st_size, HOOK.MAX_DIAGNOSTIC_BYTES)
+        if os.name != "nt":
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

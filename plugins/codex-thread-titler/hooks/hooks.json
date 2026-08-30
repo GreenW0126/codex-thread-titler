@@ -8,7 +8,7 @@
             "type": "command",
             "command": "python3 \"$PLUGIN_ROOT/scripts/thread_titler_hook.py\"",
             "timeout": 5,
-            "statusMessage": "准备对话标题选项"
+            "statusMessage": "Preparing title choices"
           }
         ]
       }
@@ -20,7 +20,7 @@
             "type": "command",
             "command": "python3 \"$PLUGIN_ROOT/scripts/thread_titler_hook.py\"",
             "timeout": 5,
-            "statusMessage": "记录对话标题备选"
+            "statusMessage": "Saving title choices"
           }
         ]
       }

@@ -24,6 +24,7 @@ from typing import Any
 MAX_PROMPT_CHARS = 6000
 MAX_RESPONSE_CHARS = 6000
 MAX_STATE_AGE_SECONDS = 180 * 24 * 60 * 60
+MAX_DIAGNOSTIC_BYTES = 256 * 1024
 
 LANGUAGE_POLICY = """Language mode is auto.
 - Write every title in the primary language of the user's initial request.
@@ -94,6 +95,46 @@ def state_root() -> Path:
 def state_path(root: Path, session_id: str) -> Path:
     digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
     return root / f"{digest}.json"
+
+
+def diagnostic_session(session_id: str) -> str:
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:12]
+
+
+def write_diagnostic(
+    root: Path,
+    session_id: str,
+    event: str,
+    outcome: str,
+    phase: str | None,
+) -> None:
+    """Append content-free hook diagnostics without affecting normal turns."""
+    try:
+        path = root / "diagnostics.jsonl"
+        if path.exists() and path.stat().st_size >= MAX_DIAGNOSTIC_BYTES:
+            rotated = root / "diagnostics.previous.jsonl"
+            try:
+                rotated.unlink()
+            except FileNotFoundError:
+                pass
+            path.replace(rotated)
+
+        record = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "session": diagnostic_session(session_id),
+            "event": event,
+            "phase": phase,
+            "outcome": outcome,
+        }
+        encoded = (json.dumps(record, ensure_ascii=True) + "\n").encode("utf-8")
+        descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+        try:
+            os.write(descriptor, encoded)
+        finally:
+            os.close(descriptor)
+    except OSError:
+        # Diagnostics must never change hook behavior or block a Codex turn.
+        return
 
 
 def load_state(path: Path) -> dict[str, Any] | None:
@@ -205,7 +246,7 @@ The selected option is {letter}, with the exact title: {title}
 Use the current Codex task-title operation to set the title to that exact text. Prefer set_thread_title; do not edit transcripts, databases, or internal files through the shell. After success, confirm briefly in the language of the selected title. If no task-title operation is available, state the selected title in that language and ask the user to apply it manually."""
 
 
-def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> None:
+def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> str:
     prompt = str(payload.get("prompt") or "")
 
     if state is None:
@@ -224,11 +265,11 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
                 }
             }
         )
-        return
+        return "title_context_injected"
 
     phase = state.get("phase")
     if phase != "awaiting_choice":
-        return
+        return "ignored_for_current_phase"
 
     match = CHOICE_RE.fullmatch(prompt)
     if match:
@@ -245,7 +286,7 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
                     }
                 }
             )
-        return
+        return "title_choice_selected"
 
     if REGENERATE_RE.fullmatch(prompt):
         save_state(
@@ -267,7 +308,7 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
                 }
             }
         )
-        return
+        return "title_regeneration_requested"
 
     if SKIP_RE.fullmatch(prompt):
         mark_done(path)
@@ -279,16 +320,17 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
                 }
             }
         )
-        return
+        return "title_selection_skipped"
 
     # A normal follow-up cancels the pending choice so a later standalone A/B/C
     # cannot be mistaken for the old title selection.
     mark_done(path)
+    return "pending_choice_cancelled"
 
 
-def handle_stop(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> None:
+def handle_stop(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> str:
     if state is None:
-        return
+        return "ignored_without_state"
 
     phase = state.get("phase")
     assistant_message = str(payload.get("last_assistant_message") or "")
@@ -305,11 +347,18 @@ def handle_stop(payload: dict[str, Any], path: Path, state: dict[str, Any] | Non
                     "candidates": candidates,
                 },
             )
+            return "title_candidates_captured"
         else:
             mark_done(path)
+            return "title_candidates_missing"
+    return "ignored_for_current_phase"
 
 
 def main() -> int:
+    root: Path | None = None
+    session_id = ""
+    event = "unknown"
+    phase: str | None = None
     try:
         payload = json.load(sys.stdin)
         if not isinstance(payload, dict):
@@ -322,14 +371,20 @@ def main() -> int:
         prune_old_states(root)
         path = state_path(root, session_id)
         state = load_state(path)
-        event = payload.get("hook_event_name")
+        phase = str(state.get("phase")) if isinstance(state, dict) and state.get("phase") else None
+        event = str(payload.get("hook_event_name") or "unknown")
 
         if event == "UserPromptSubmit":
-            handle_user_prompt(payload, path, state)
+            outcome = handle_user_prompt(payload, path, state)
         elif event == "Stop":
-            handle_stop(payload, path, state)
-    except Exception:
+            outcome = handle_stop(payload, path, state)
+        else:
+            outcome = "unsupported_event"
+        write_diagnostic(root, session_id, event, outcome, phase)
+    except Exception as error:
         # Hook failures should never block or corrupt an ordinary Codex turn.
+        if root is not None and session_id:
+            write_diagnostic(root, session_id, event, f"error_{type(error).__name__}", phase)
         return 0
     return 0
 
