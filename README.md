@@ -1,98 +1,74 @@
 # Codex Thread Titler
 
-Codex Thread Titler is a local Codex plugin that adds three concise title choices to the end of the first response in a new task. After you reply with `A`, `B`, or `C`, the plugin applies the selected title to the current task.
+Codex Thread Titler adds three concise title choices to the end of the first response in a new Codex task. After you reply with `A`, `B`, or `C`, the plugin applies the selected title to the current task.
 
 It is designed for people who manage many Codex tasks and want titles that preserve why each conversation started—not generic summaries of what happened along the way.
 
 ## Features
 
-- Appends title choices to the first response without hiding or collapsing the main answer.
+- Keeps the full first response visible and appends title choices naturally at the end.
 - Preserves the conversation's original motivation and the problem to be resolved.
-- Produces three distinct title candidates in the primary language of the user's initial request.
-- Renames the task only after an explicit `A`, `B`, or `C` selection.
+- Uses the primary language of the user's initial request automatically.
+- Produces three distinct candidates and renames only after an explicit selection.
 - Supports regenerating the candidates or skipping the title step.
 - Runs locally and does not access the network.
 
-## Automatic language mode
-
-Language mode is `auto` by default. The plugin follows the language that carries the user's original intent rather than the Codex interface language or the assistant's reply.
-
-- Chinese request → Chinese titles
-- English request → English titles
-- Japanese request → Japanese titles
-- Korean request → Korean titles
-- Mixed-language request → the main request language, with product names, code identifiers, people, works, and other proper nouns preserved naturally
-
-The title-section heading, title candidates, and final choice instruction follow the same language. Candidate markers remain `A.`, `B.`, and `C.` in every language.
-
-## Title style
-
-The plugin favors compact object, goal, or question phrases. A useful title should make the task recognizable at a glance when it appears beside many other conversations.
-
-It avoids:
-
-- Process-oriented wording such as “explore,” “discuss,” or “find out.”
-- Redundant lead-in verbs such as “clarify,” “reduce,” or “solve.”
-- Colons, dashes, task-type labels, implementation steps, and temporary solutions.
-- Titles based only on the latest message when the original request provides better context.
-
-Examples:
-
-| Avoid | Prefer |
-| --- | --- |
-| Keep accurate titles for Codex conversations | Accurate Codex conversation titles |
-| Find out whether the free plan limits user conversion | Whether the free plan limits user conversion |
-| Reduce the difficulty of identifying conversations across growing projects | Distinguishing conversations across multiple projects |
-
-## Installation
+## Install from the Codex Marketplace
 
 ### Requirements
 
-- Codex desktop or Codex CLI with plugin and hook support.
-- Git and Python 3.
-- The built-in `$plugin-creator` skill.
+- Codex desktop or Codex CLI with plugin and hook support
+- Git and Python 3
 
-### Recommended installation
+Add this GitHub repository as a Marketplace:
 
-Open a new Codex task and paste the following prompt:
-
-```text
-Use $plugin-creator to install the public plugin from
-https://github.com/GreenW0126/codex-thread-titler.
-
-Clone it to ~/plugins/codex-thread-titler, add it to my personal
-marketplace without overwriting any existing marketplace entries,
-install and enable codex-thread-titler@personal, and ask for permission
-as soon as it is needed. When finished, tell me to start a new task and
-review the plugin hooks.
+```bash
+codex plugin marketplace add GreenW0126/codex-thread-titler
 ```
 
-Codex will clone the source, register it in the personal marketplace, and install the plugin. Approve any filesystem or network permission requests required by the installation.
+Install the plugin:
 
-When installation finishes:
+```bash
+codex plugin add codex-thread-titler@greenw0126
+```
+
+If you prefer a single shell line:
+
+```bash
+codex plugin marketplace add GreenW0126/codex-thread-titler && codex plugin add codex-thread-titler@greenw0126
+```
+
+Then:
 
 1. Start a new Codex task so the plugin is loaded.
 2. Open `/hooks`.
 3. Review, trust, and enable `UserPromptSubmit` and `Stop` for `codex-thread-titler`.
-4. Start another new task and send a first message to verify that three title choices appear at the end of the response.
+4. Start another new task and send a first message.
+5. Confirm that three title choices appear at the end of the first response.
 
-This repository contains the plugin source rather than a standalone marketplace. Do not run `codex plugin marketplace add GreenW0126/codex-thread-titler`; use the personal-marketplace installation flow above.
+The Marketplace needs to be added only once. Later installations or reinstalls use:
 
-### Updating
-
-Open a Codex task and paste:
-
-```text
-Use $plugin-creator to update the existing plugin at
-~/plugins/codex-thread-titler from
-https://github.com/GreenW0126/codex-thread-titler.
-
-Pull the latest main branch, update the Codex cachebuster, reinstall
-codex-thread-titler@personal, preserve all existing marketplace entries,
-and ask for permission as soon as it is needed.
+```bash
+codex plugin add codex-thread-titler@greenw0126
 ```
 
-After an update, start a new task. If the hook definition changed, review and trust the hooks again.
+## Update
+
+Refresh the Marketplace snapshot and reinstall the plugin:
+
+```bash
+codex plugin marketplace upgrade greenw0126
+codex plugin add codex-thread-titler@greenw0126
+```
+
+Then start a new task so Codex loads the updated plugin. If the hook definition changed, review and trust the hooks again.
+
+To install a specific published version, add the Marketplace using a Git tag, for example:
+
+```bash
+codex plugin marketplace add GreenW0126/codex-thread-titler@v0.1.0
+codex plugin add codex-thread-titler@greenw0126
+```
 
 ## Usage
 
@@ -114,31 +90,77 @@ Reply with A, B, or C.
 
 You can also ask to regenerate the candidates or reply with “skip.”
 
+## Automatic language mode
+
+Language mode is `auto` by default. The plugin follows the language that carries the user's original intent rather than the Codex interface language or the assistant's reply.
+
+- Chinese request → Chinese titles
+- English request → English titles
+- Japanese request → Japanese titles
+- Korean request → Korean titles
+- Mixed-language request → the main request language, with proper nouns preserved naturally
+
+Candidate markers remain `A.`, `B.`, and `C.` in every language.
+
+## Title quality
+
+The plugin favors compact object, goal, or question phrases. A useful title should make the task recognizable at a glance beside many other conversations.
+
+It avoids process-oriented wording, redundant lead-in verbs, task labels, temporary implementation details, and titles based only on the latest message.
+
+| Avoid | Prefer |
+| --- | --- |
+| Keep accurate titles for Codex conversations | Accurate Codex conversation titles |
+| Find out whether the free plan limits user conversion | Whether the free plan limits user conversion |
+| Reduce the difficulty of identifying conversations across growing projects | Distinguishing conversations across multiple projects |
+
 ## Hook permissions
 
-After the first installation—or whenever the hook definition changes—open `/hooks` in Codex and review, trust, and enable both hooks used by this plugin:
+After the first installation—or whenever the hook definition changes—open `/hooks` in Codex and review, trust, and enable both hooks:
 
 - `UserPromptSubmit`
 - `Stop`
 
 The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
 
+## Upgrading and older conversations
+
+New tasks use the latest installed plugin version. An existing Codex task may continue referencing the absolute plugin-cache path that was active when the task started. If that cache directory is later removed, its hook can fail with an error such as:
+
+```text
+can't open file '.../old-version/scripts/thread_titler_hook.py'
+```
+
+The safest solution is to start a new task after updating the plugin.
+
+If continuing the older task is necessary, restore the exact version directory shown in the error. From a clone of this repository, run:
+
+```bash
+python3 plugins/codex-thread-titler/scripts/restore_legacy_cache.py \
+  "/absolute/path/from-the-error/to/the/old-version"
+```
+
+The helper accepts only a destination inside `~/.codex/plugins/cache`, copies only runtime files, leaves identical files untouched, and stops if any existing file has different contents. It never deletes or silently overwrites cache data.
+
+This is a compatibility workaround for behavior observed in existing Codex tasks, not a guarantee that Codex will preserve old cache directories indefinitely.
+
 ## How it works
 
-- `UserPromptSubmit` injects the title-generation instruction when the first user message is submitted.
-- Codex completes the original request and appends the three title choices to the same response.
+- `UserPromptSubmit` injects the title-generation instruction for the first user message.
+- Codex completes the original request and appends three title choices to the same response.
 - `Stop` captures those choices without blocking the response or starting a continuation request.
 - Candidate state is stored in the Codex-provided `PLUGIN_DATA` directory.
 - The plugin does not parse unstable conversation transcripts or make network requests.
 
-## Project structure
+## Repository structure
 
 ```text
-.codex-plugin/plugin.json                 Plugin manifest
-hooks/hooks.json                          Hook definitions
-scripts/thread_titler_hook.py             Hook implementation
-skills/codex-thread-titler/SKILL.md       Manual title skill
-tests/test_thread_titler_hook.py          Behavior tests
+.agents/plugins/marketplace.json                         Marketplace catalog
+plugins/codex-thread-titler/.codex-plugin/plugin.json   Plugin manifest
+plugins/codex-thread-titler/hooks/hooks.json            Hook definitions
+plugins/codex-thread-titler/scripts/                    Runtime and compatibility tools
+plugins/codex-thread-titler/skills/                     Manual title skill
+plugins/codex-thread-titler/tests/                      Behavior tests
 ```
 
 ## Development
@@ -146,15 +168,29 @@ tests/test_thread_titler_hook.py          Behavior tests
 Run the behavior tests:
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s plugins/codex-thread-titler/tests -v
 ```
 
-If the Codex `plugin-creator` skill is available locally, validate the plugin structure with:
+Validate the plugin structure when the built-in `plugin-creator` skill is available:
 
 ```bash
-python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
+python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
+  plugins/codex-thread-titler
 ```
+
+## License
+
+Codex Thread Titler is available under the [MIT License](LICENSE).
 
 ## 中文简介
 
-Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个标题选项。默认使用 `auto` 语言模式，自动跟随用户最初诉求的主要语言，并保留产品名、代码标识、人名和作品名等专有名词。标题优先呈现对话的出发点与真正想解决的问题，而不是复述讨论过程。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务。
+Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个标题选项，不会另外触发一轮请求或折叠正文。标题默认自动跟随用户最初诉求的主要语言，并优先保留对话的出发点、核心对象与真正想解决的问题。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务。
+
+首次安装时依次运行：
+
+```bash
+codex plugin marketplace add GreenW0126/codex-thread-titler
+codex plugin add codex-thread-titler@greenw0126
+```
+
+安装后请新建任务，并在 `/hooks` 中检查、信任和启用 `UserPromptSubmit` 与 `Stop`。插件升级后，旧任务可能继续引用旧缓存路径；优先新建任务，如必须继续旧任务，可使用仓库内的 `restore_legacy_cache.py` 安全补齐旧缓存运行文件。

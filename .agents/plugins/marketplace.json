@@ -1,0 +1,20 @@
+{
+  "name": "greenw0126",
+  "interface": {
+    "displayName": "GreenW0126 Plugins"
+  },
+  "plugins": [
+    {
+      "name": "codex-thread-titler",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-thread-titler"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

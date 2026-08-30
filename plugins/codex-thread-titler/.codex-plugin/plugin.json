@@ -1,10 +1,21 @@
 {
   "name": "codex-thread-titler",
-  "version": "0.1.0+codex.20260830014002",
+  "version": "0.1.0",
   "description": "Append three concise title choices to the first Codex answer and rename the task after an explicit A, B, or C choice.",
   "author": {
-    "name": "GreenW0126"
+    "name": "GreenW0126",
+    "url": "https://github.com/GreenW0126"
   },
+  "homepage": "https://github.com/GreenW0126/codex-thread-titler#readme",
+  "repository": "https://github.com/GreenW0126/codex-thread-titler",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "conversation-title",
+    "thread-title",
+    "task-management",
+    "hooks"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex Thread Titler",
