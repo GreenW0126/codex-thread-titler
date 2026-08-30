@@ -32,6 +32,56 @@ Examples:
 | Find out whether the free plan limits user conversion | Whether the free plan limits user conversion |
 | Reduce the difficulty of identifying conversations across growing projects | Distinguishing conversations across multiple projects |
 
+## Installation
+
+### Requirements
+
+- Codex desktop or Codex CLI with plugin and hook support.
+- Git and Python 3.
+- The built-in `$plugin-creator` skill.
+
+### Recommended installation
+
+Open a new Codex task and paste the following prompt:
+
+```text
+Use $plugin-creator to install the public plugin from
+https://github.com/GreenW0126/codex-thread-titler.
+
+Clone it to ~/plugins/codex-thread-titler, add it to my personal
+marketplace without overwriting any existing marketplace entries,
+install and enable codex-thread-titler@personal, and ask for permission
+as soon as it is needed. When finished, tell me to start a new task and
+review the plugin hooks.
+```
+
+Codex will clone the source, register it in the personal marketplace, and install the plugin. Approve any filesystem or network permission requests required by the installation.
+
+When installation finishes:
+
+1. Start a new Codex task so the plugin is loaded.
+2. Open `/hooks`.
+3. Review, trust, and enable `UserPromptSubmit` and `Stop` for `codex-thread-titler`.
+4. Start another new task and send a first message to verify that three title choices appear at the end of the response.
+
+This repository contains the plugin source rather than a standalone marketplace. Do not run `codex plugin marketplace add GreenW0126/codex-thread-titler`; use the personal-marketplace installation flow above.
+
+### Updating
+
+Open a Codex task and paste:
+
+```text
+Use $plugin-creator to update the existing plugin at
+~/plugins/codex-thread-titler from
+https://github.com/GreenW0126/codex-thread-titler.
+
+Pull the latest main branch, update the Codex cachebuster, reinstall
+codex-thread-titler@personal, preserve all existing marketplace entries,
+and ask for permission as soon as it is needed.
+```
+
+After an update, start a new task. If the hook definition changed, review and trust the hooks again.
+
 ## Usage
 
 1. Start a new Codex task and send your first message normally.
