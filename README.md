@@ -8,10 +8,22 @@ It is designed for people who manage many Codex tasks and want titles that prese
 
 - Appends title choices to the first response without hiding or collapsing the main answer.
 - Preserves the conversation's original motivation and the problem to be resolved.
-- Produces three distinct Chinese title candidates.
+- Produces three distinct title candidates in the primary language of the user's initial request.
 - Renames the task only after an explicit `A`, `B`, or `C` selection.
 - Supports regenerating the candidates or skipping the title step.
 - Runs locally and does not access the network.
+
+## Automatic language mode
+
+Language mode is `auto` by default. The plugin follows the language that carries the user's original intent rather than the Codex interface language or the assistant's reply.
+
+- Chinese request → Chinese titles
+- English request → English titles
+- Japanese request → Japanese titles
+- Korean request → Korean titles
+- Mixed-language request → the main request language, with product names, code identifiers, people, works, and other proper nouns preserved naturally
+
+The title-section heading, title candidates, and final choice instruction follow the same language. Candidate markers remain `A.`, `B.`, and `C.` in every language.
 
 ## Title style
 
@@ -145,4 +157,4 @@ python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py .
 
 ## 中文简介
 
-Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个中文标题选项。标题优先保留用户开启对话的出发点与真正想解决的问题，而不是复述讨论过程。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务，方便在多个项目和大量对话中快速辨认内容。
+Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个标题选项。默认使用 `auto` 语言模式，自动跟随用户最初诉求的主要语言，并保留产品名、代码标识、人名和作品名等专有名词。标题优先呈现对话的出发点与真正想解决的问题，而不是复述讨论过程。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务。

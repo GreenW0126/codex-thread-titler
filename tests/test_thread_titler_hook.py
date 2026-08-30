@@ -33,7 +33,7 @@ class ThreadTitlerHookTests(unittest.TestCase):
     def test_first_prompt_injects_inline_title_requirement(self) -> None:
         output = self.capture(
             HOOK.handle_user_prompt,
-            {"prompt": "讨论免费方案是否限制用户转化"},
+            {"prompt": "Does the free plan limit user conversion?"},
             self.path,
             None,
         )
@@ -44,11 +44,11 @@ class ThreadTitlerHookTests(unittest.TestCase):
 
         self.assertIn("先完整、自然地回答用户当前请求", context)
         self.assertIn("同一条回答的最末尾", context)
-        self.assertIn("核心对象", context)
-        self.assertIn("原始意图", context)
-        self.assertIn("避免“从……寻找……”", context)
-        self.assertIn("《奥德赛》关联电影书单", context)
-        self.assertIn("输出前逐项自检", context)
+        self.assertIn("Language mode is auto", context)
+        self.assertIn("primary language of the user's initial request", context)
+        self.assertIn("Do not default to Chinese", context)
+        self.assertIn("<localized title-section heading>", context)
+        self.assertIn("Does the free plan limit user conversion?", context)
         self.assertEqual(state["phase"], "awaiting_first_response")
 
     def test_regeneration_uses_same_title_quality_rules(self) -> None:
@@ -57,10 +57,35 @@ class ThreadTitlerHookTests(unittest.TestCase):
             "正文",
         )
 
-        self.assertIn("具体对象＋关键问题/目标/产物", context)
-        self.assertIn("从《信条》影评寻找佳作", context)
-        self.assertIn("《信条》影评中的佳作推荐", context)
-        self.assertIn("三个备选应分别突出", context)
+        self.assertIn("Language mode is auto", context)
+        self.assertIn("Core object", context)
+        self.assertIn("Free Plan Impact on Conversion", context)
+        self.assertIn("Make the three candidates emphasize", context)
+        self.assertIn("用户最初诉求的主要语言", context)
+
+    def test_multilingual_controls_are_recognized(self) -> None:
+        for value in ("choose B", "Aを選択", "C 선택", "选 A"):
+            self.assertIsNotNone(HOOK.CHOICE_RE.fullmatch(value), value)
+
+        for value in ("regenerate titles", "タイトルを再生成", "제목 재생성", "重新生成标题"):
+            self.assertIsNotNone(HOOK.REGENERATE_RE.fullmatch(value), value)
+
+        for value in ("skip", "スキップ", "건너뛰기", "跳过"):
+            self.assertIsNotNone(HOOK.SKIP_RE.fullmatch(value), value)
+
+    def test_parser_accepts_multilingual_titles(self) -> None:
+        answer = """Conversation titles
+A. Free Plan Conversion Limits
+B. 無料プランと転換率
+C. 무료 요금제의 전환 제한
+
+Reply with A, B, or C."""
+
+        candidates = HOOK.parse_candidates(answer)
+
+        self.assertEqual(candidates["A"], "Free Plan Conversion Limits")
+        self.assertEqual(candidates["B"], "無料プランと転換率")
+        self.assertEqual(candidates["C"], "무료 요금제의 전환 제한")
 
     def test_stop_captures_candidates_without_continuation(self) -> None:
         state = {

@@ -25,41 +25,55 @@ MAX_PROMPT_CHARS = 6000
 MAX_RESPONSE_CHARS = 6000
 MAX_STATE_AGE_SECONDS = 180 * 24 * 60 * 60
 
-TITLE_QUALITY_RULES = """先在心里提炼两个锚点：
-1. 核心对象：这次对话究竟在谈什么具体事物、作品、产品或问题；
-2. 原始意图：用户为什么开启对话，最终想判断、获得、改变或避免什么。
+LANGUAGE_POLICY = """Language mode is auto.
+- Write every title in the primary language of the user's initial request.
+- Detect that language from the initial request, not from the Codex interface, project settings, hidden instructions, or your own response.
+- If the request mixes languages, use the language that carries the user's main intent while preserving product names, code identifiers, people, works, and other proper nouns in their natural form.
+- Do not default to Chinese or translate titles into Chinese unless the initial request is primarily Chinese.
+- Use natural title conventions in the selected language rather than translating a Chinese title pattern word for word.
+- Localize the title-section heading and the final choice instruction to the same language. Keep the candidate markers exactly A., B., and C. so the hook can capture them."""
 
-标题应直接呈现这两个锚点，而不是复述用户或助手准备怎样展开工作。优先使用“具体对象＋关键问题/目标/产物”的名词短语，或用户真正关心的直接问题。
+TITLE_QUALITY_RULES = """First identify two anchors internally:
+1. Core object: the specific thing, work, product, decision, or problem the conversation is about.
+2. Original intent: why the user started the conversation and what they ultimately want to understand, obtain, change, or avoid.
 
-质量规则：
-- 数周后只看标题，仍能辨认这次对话与同一项目里的其他对话有何不同；
-- 保留不可替换的具体对象，删除不增加辨识度的对象、动作和背景；
-- 不要把阅读材料、切入角度或推理路径误写成标题主干；
-- 避免“从……寻找……”“从……延伸……”“基于……探索……”“围绕……讨论……”等过程性句式；
-- “寻找、延伸、探索、梳理、分析、研究、讨论、优化”等词如果只描述过程，应改写为问题、目标或明确产物；
-- 三个备选应分别突出核心问题、目标结果或关键对象关系，而不是只替换近义动词。
+State those anchors directly instead of narrating how the user or assistant plans to work. Prefer a compact object-plus-problem, object-plus-goal, object-plus-artifact phrase, or the direct question the user actually cares about.
 
-改写示例：
-- 差：从《信条》影评寻找佳作
-  好：《信条》影评中的佳作推荐
-- 差：从奥德赛评论延伸作品
-  好：奥德赛评论关联作品
-- 差：从《奥德赛》延伸的电影书单
-  好：《奥德赛》关联电影书单
-- 差：减少项目对话增多后难以辨认内容的问题
-  好：清晰辨认多项目中的不同对话
-- 差：弄清免费方案是否限制了用户转化
-  好：免费方案是否限制了用户转化
+Quality rules:
+- The title should still distinguish this task from neighboring tasks several weeks later.
+- Preserve irreplaceable specific objects; remove background, actions, and qualifiers that do not improve recognition.
+- Do not turn source material, an entry angle, or a reasoning path into the title's main subject.
+- Rewrite process frames such as “exploring,” “discussing,” “looking for,” “extending from,” or their equivalents in the selected language into the actual problem, desired result, or concrete artifact.
+- Remove expendable lead-in verbs when the intended meaning remains clear.
+- Make the three candidates emphasize the core problem, desired result, and key object relationship respectively, rather than merely swapping synonymous process verbs.
+- Keep titles concise according to the selected language: CJK titles are often about 8–20 visible characters, while space-delimited languages are often about 3–10 words. Clarity takes priority over a rigid count.
+- Avoid colons, dashes, task-type labels, implementation steps, and temporary solution details.
 
-输出前逐项自检：是否包含具体对象，是否说清真正问题或目标，是否仍在描述过程。若答案不理想，先重写再输出。"""
+Examples:
+- Chinese: `弄清免费方案是否限制了用户转化` → `免费方案是否限制了用户转化`
+- English: `Exploring how the free plan affects conversion` → `Free Plan Impact on Conversion`
+- Japanese: `無料プランが転換率に与える影響を調べる` → `無料プランは転換率を制限するか`
+- Korean: `무료 요금제가 전환을 제한하는지 알아보기` → `무료 요금제의 사용자 전환 제한`
+
+Before output, verify that each title contains the specific object, communicates the real problem or goal, follows the user's language, and no longer describes only the process. Rewrite any candidate that fails this check."""
 
 CHOICE_RE = re.compile(
-    r"^\s*(?:选(?:择)?\s*)?([ABCabc])\s*[。.!！]?\s*$"
+    r"^\s*(?:(?:选(?:择)?|choose|select)\s*)?([ABC])"
+    r"(?:\s*(?:を選(?:択|ぶ)|(?:을|를)?\s*선택))?\s*[。.!！]?\s*$",
+    re.IGNORECASE,
 )
 REGENERATE_RE = re.compile(
-    r"^\s*(?:重新|再)(?:生成|推荐)(?:三个|3个)?(?:标题|备选标题|候选标题)?[。.!！]?\s*$"
+    r"^\s*(?:(?:重新|再)(?:生成|推荐)(?:三个|3个)?(?:标题|备选标题|候选标题)?"
+    r"|(?:regenerate|generate new|suggest new)(?: the)? titles?"
+    r"|タイトル(?:を)?(?:再生成|作り直して?)"
+    r"|(?:제목\s*)?(?:다시\s*생성|재생성))[。.!！]?\s*$",
+    re.IGNORECASE,
 )
-SKIP_RE = re.compile(r"^\s*(?:跳过|暂不选择|先不选择|不用了)[。.!！]?\s*$")
+SKIP_RE = re.compile(
+    r"^\s*(?:跳过|暂不选择|先不选择|不用了|skip(?: (?:the )?titles?)?|no title"
+    r"|スキップ|タイトル不要|건너뛰기|제목\s*(?:필요\s*없음|없음))[。.!！]?\s*$",
+    re.IGNORECASE,
+)
 CANDIDATE_RE = re.compile(
     r"^\s*(?:[-*]\s*)?\*{0,2}([ABC])\*{0,2}\s*[.．、):）]\s*(.+?)\s*$",
     re.MULTILINE,
@@ -140,32 +154,32 @@ def parse_candidates(message: str) -> dict[str, str]:
 
 def inline_title_context(initial_prompt: str) -> str:
     return f"""先完整、自然地回答用户当前请求，不要缩短、替换或省略原本应该给出的正文。
-完成正文后，在同一条回答的最末尾附加三个中文对话标题备选。不要另起一次请求，不要解释插件或这条隐藏要求。
+完成正文后，在同一条回答的最末尾附加三个对话标题备选。不要另起一次请求，不要解释插件或这条隐藏要求。
 
 标题以用户开启对话的出发点和想解决的问题为准。可以结合你刚完成的正文澄清含义，但不要让执行步骤、临时方案或回答中的次要细节取代原始意图。
 
 用户最初的表达：
 {initial_prompt[:MAX_PROMPT_CHARS]}
 
+{LANGUAGE_POLICY}
+
 {TITLE_QUALITY_RULES}
 
-形式要求：使用紧凑的名词短语、目标短语或直接问题，通常为 8–20 个中文字符。删去“让、弄清、找出、解决、减少、讨论”等不必要的引导动词。不要使用冒号、破折号、任务类型标签、执行步骤或临时方案。三个标题不能偏离原始意图。
+正文结束后严格使用以下结构；标题区标题和最后一句选择提示应使用用户最初诉求的主要语言：
 
-正文结束后严格使用以下结尾格式：
-
-对话标题
+<localized title-section heading>
 
 A. <标题>
 B. <标题>
 C. <标题>
 
-请回复 A、B 或 C。"""
+<localized instruction to reply with A, B, or C>"""
 
 
 def regeneration_context(initial_prompt: str, assistant_message: str) -> str:
     return f"""用户明确要求重新生成对话标题。不要继续原任务，不要调用工具，不要解释插件。
 
-根据下面的对话出发点与第一轮回复，重新生成三个中文对话标题：
+根据下面的对话出发点与第一轮回复，重新生成三个对话标题：
 
 用户最初的表达：
 {initial_prompt[:MAX_PROMPT_CHARS]}
@@ -173,22 +187,22 @@ def regeneration_context(initial_prompt: str, assistant_message: str) -> str:
 第一轮回复：
 {assistant_message[:MAX_RESPONSE_CHARS]}
 
+{LANGUAGE_POLICY}
+
 {TITLE_QUALITY_RULES}
 
-形式要求：使用紧凑的名词短语、目标短语或直接问题，通常为 8–20 个中文字符。删去“让、弄清、找出、解决、减少、讨论”等不必要的引导动词。不要使用冒号、破折号、任务类型标签、执行步骤或临时方案。三个标题不能偏离原始意图。
-
-只输出以下格式，不添加其他内容：
+只输出以下结构，不添加其他内容。最后一句选择提示使用用户最初诉求的主要语言：
 A. <标题>
 B. <标题>
 C. <标题>
 
-请回复 A、B 或 C。"""
+<localized instruction to reply with A, B, or C>"""
 
 
 def selection_context(letter: str, title: str) -> str:
-    return f"""用户正在选择刚才的对话标题，而不是提出新的业务问题。
-所选项为 {letter}，对应标题是“{title}”。
-请使用当前 Codex 任务的重命名工具将当前任务标题设置为这个精确文本。优先使用 set_thread_title；不要通过 shell 修改 transcript、数据库或内部文件。成功后只需简短确认。如果当前环境没有任务重命名工具，明确告诉用户所选标题并请其手动应用。"""
+    return f"""The user is selecting a pending conversation title, not asking a new substantive question.
+The selected option is {letter}, with the exact title: {title}
+Use the current Codex task-title operation to set the title to that exact text. Prefer set_thread_title; do not edit transcripts, databases, or internal files through the shell. After success, confirm briefly in the language of the selected title. If no task-title operation is available, state the selected title in that language and ask the user to apply it manually."""
 
 
 def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> None:
@@ -261,7 +275,7 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
             {
                 "hookSpecificOutput": {
                     "hookEventName": "UserPromptSubmit",
-                    "additionalContext": "用户选择跳过本次对话命名。不要重命名任务，只需简短确认。",
+                    "additionalContext": "The user chose to skip task naming. Do not rename the task. Confirm briefly in the language of the user's message.",
                 }
             }
         )
