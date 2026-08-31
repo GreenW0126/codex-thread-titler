@@ -25,6 +25,12 @@ MAX_PROMPT_CHARS = 6000
 MAX_RESPONSE_CHARS = 6000
 MAX_STATE_AGE_SECONDS = 180 * 24 * 60 * 60
 MAX_DIAGNOSTIC_BYTES = 256 * 1024
+ACTIVE_TITLE_PHASES = {
+    "eligible_new_task",
+    "awaiting_first_response",
+    "awaiting_choice",
+    "regenerating",
+}
 
 LANGUAGE_POLICY = """Language mode is auto.
 - Write every title in the primary language of the user's initial request.
@@ -246,10 +252,42 @@ The selected option is {letter}, with the exact title: {title}
 Use the current Codex task-title operation to set the title to that exact text. Prefer set_thread_title; do not edit transcripts, databases, or internal files through the shell. After success, confirm briefly in the language of the selected title. If no task-title operation is available, state the selected title in that language and ask the user to apply it manually."""
 
 
+def handle_session_start(
+    payload: dict[str, Any],
+    path: Path,
+    state: dict[str, Any] | None,
+) -> str:
+    """Grant title eligibility only to a confirmed new Codex task.
+
+    SessionStart reason ``startup`` is the positive signal for a new task. Resume,
+    clear, compact, missing, and unknown reasons fail closed so an older task is
+    never treated as new merely because its plugin state is absent.
+    """
+    reason = str(payload.get("reason") or "").strip().lower()
+    phase = state.get("phase") if isinstance(state, dict) else None
+
+    if phase in ACTIVE_TITLE_PHASES:
+        return "active_title_flow_preserved"
+
+    if state is not None:
+        return "existing_task_ignored"
+
+    if reason == "startup":
+        save_state(path, {"phase": "eligible_new_task"})
+        return "new_task_eligible"
+
+    mark_done(path)
+    return "non_new_task_ignored"
+
+
 def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any] | None) -> str:
     prompt = str(payload.get("prompt") or "")
 
     if state is None:
+        return "ignored_without_new_task_eligibility"
+
+    phase = state.get("phase")
+    if phase == "eligible_new_task":
         save_state(
             path,
             {
@@ -267,7 +305,6 @@ def handle_user_prompt(payload: dict[str, Any], path: Path, state: dict[str, Any
         )
         return "title_context_injected"
 
-    phase = state.get("phase")
     if phase != "awaiting_choice":
         return "ignored_for_current_phase"
 
@@ -374,7 +411,9 @@ def main() -> int:
         phase = str(state.get("phase")) if isinstance(state, dict) and state.get("phase") else None
         event = str(payload.get("hook_event_name") or "unknown")
 
-        if event == "UserPromptSubmit":
+        if event == "SessionStart":
+            outcome = handle_session_start(payload, path, state)
+        elif event == "UserPromptSubmit":
             outcome = handle_user_prompt(payload, path, state)
         elif event == "Stop":
             outcome = handle_stop(payload, path, state)

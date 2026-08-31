@@ -14,6 +14,7 @@ It is designed for people who manage many Codex tasks and want titles that prese
 - Uses the primary language of the user's initial request automatically.
 - Produces three distinct candidates and renames only after an explicit selection.
 - Supports regenerating the candidates or skipping the title step.
+- Skips restored or reconnected older tasks instead of treating missing plugin state as a new conversation.
 - Runs locally and does not access the network.
 
 ## Install from the Codex Marketplace
@@ -55,7 +56,7 @@ Then:
 
 1. Start a new Codex task so the plugin is loaded.
 2. Open `/hooks`.
-3. Review, trust, and enable `UserPromptSubmit` and `Stop` for `codex-thread-titler`.
+3. Review, trust, and enable `SessionStart`, `UserPromptSubmit`, and `Stop` for `codex-thread-titler`.
 4. Start another new task and send a first message.
 5. Confirm that three title choices appear at the end of the first response.
 
@@ -79,7 +80,7 @@ Then start a new task so Codex loads the updated plugin. If the hook definition 
 To install a specific published version, add the Marketplace using a Git tag, for example:
 
 ```bash
-codex plugin marketplace add GreenW0126/codex-thread-titler@v0.1.0
+codex plugin marketplace add GreenW0126/codex-thread-titler@v0.1.2
 codex plugin add codex-thread-titler@greenw0126
 ```
 
@@ -129,12 +130,13 @@ It avoids process-oriented wording, redundant lead-in verbs, task labels, tempor
 
 ## Hook permissions
 
-After the first installation—or whenever the hook definition changes—open `/hooks` in Codex and review, trust, and enable both hooks:
+After the first installation—or whenever the hook definition changes—open `/hooks` in Codex and review, trust, and enable all three hooks:
 
+- `SessionStart`
 - `UserPromptSubmit`
 - `Stop`
 
-The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
+`SessionStart` confirms that the task is newly created before title generation is allowed. The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
 
 ## Diagnostics
 
@@ -177,7 +179,9 @@ This is a compatibility workaround for behavior observed in existing Codex tasks
 
 ## How it works
 
-- `UserPromptSubmit` injects the title-generation instruction for the first user message.
+- `SessionStart` grants title eligibility only when Codex reports a new task with the `startup` reason.
+- Restored, reconnected, cleared, compacted, unknown, and state-less older tasks fail closed without title generation.
+- `UserPromptSubmit` injects the title-generation instruction only for an eligible task's first user message.
 - Codex completes the original request and appends three title choices to the same response.
 - `Stop` captures those choices without blocking the response or starting a continuation request.
 - Candidate state is stored in the Codex-provided `PLUGIN_DATA` directory.
@@ -217,7 +221,7 @@ Security vulnerabilities should be reported privately according to [SECURITY.md]
 
 ## 中文简介
 
-Codex Thread Titler 会在新任务的第一轮完整回复末尾自然附上三个标题选项，不会另外触发一轮请求或折叠正文。标题默认自动跟随用户最初诉求的主要语言，并优先保留对话的出发点、核心对象与真正想解决的问题。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务。
+Codex Thread Titler 会在确认是新任务后，于第一轮完整回复末尾自然附上三个标题选项，不会另外触发一轮请求或折叠正文。恢复、断线重连或上下文整理后的旧任务不会因为缺少插件状态而被误判为新任务。标题默认自动跟随用户最初诉求的主要语言，并优先保留对话的出发点、核心对象与真正想解决的问题。回复 `A`、`B` 或 `C` 后，插件会将所选标题应用到当前任务。
 
 这是通过 GitHub Marketplace 分发的社区插件，目前没有进入 ChatGPT 与 Codex 的官方统一插件目录。当前已验证环境为 macOS 15.6.1、Codex CLI 0.149.0-alpha.4 和 Python 3.14.6；Linux 与 Windows 尚未测试。
 

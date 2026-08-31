@@ -2,6 +2,13 @@
 
 All notable changes to Codex Thread Titler are documented here.
 
+## 0.1.2 - 2026-08-31
+
+- Generate title choices only after `SessionStart` confirms a new task with the `startup` reason.
+- Skip restored, reconnected, cleared, compacted, unknown, and state-less older tasks by default.
+- Preserve an already active title-selection flow across a task resume.
+- Add regression tests for reconnection and missing-state boundaries.
+
 ## 0.1.1 - 2026-08-30
 
 - Clarify that the plugin is distributed through a community GitHub Marketplace and is not listed in the official universal plugin directory.

@@ -1,6 +1,19 @@
 {
-  "description": "Append three task-title choices to the first answer and capture them without continuing the turn.",
+  "description": "Append three task-title choices only for a confirmed new task and capture them without continuing the turn.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/thread_titler_hook.py\"",
+            "timeout": 5,
+            "statusMessage": "Checking title eligibility"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

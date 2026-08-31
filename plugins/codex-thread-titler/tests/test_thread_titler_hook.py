@@ -33,17 +33,23 @@ class ThreadTitlerHookTests(unittest.TestCase):
         return stream.getvalue()
 
     def test_first_prompt_injects_inline_title_requirement(self) -> None:
+        start_outcome = HOOK.handle_session_start(
+            {"reason": "startup"},
+            self.path,
+            None,
+        )
         output = self.capture(
             HOOK.handle_user_prompt,
             {"prompt": "Does the free plan limit user conversion?"},
             self.path,
-            None,
+            HOOK.load_state(self.path),
         )
 
         payload = json.loads(output)
         context = payload["hookSpecificOutput"]["additionalContext"]
         state = HOOK.load_state(self.path)
 
+        self.assertEqual(start_outcome, "new_task_eligible")
         self.assertIn("先完整、自然地回答用户当前请求", context)
         self.assertIn("同一条回答的最末尾", context)
         self.assertIn("Language mode is auto", context)
@@ -52,6 +58,61 @@ class ThreadTitlerHookTests(unittest.TestCase):
         self.assertIn("<localized title-section heading>", context)
         self.assertIn("Does the free plan limit user conversion?", context)
         self.assertEqual(state["phase"], "awaiting_first_response")
+
+    def test_prompt_without_session_start_fails_closed(self) -> None:
+        output = self.capture(
+            HOOK.handle_user_prompt,
+            {"prompt": "Continue an older task"},
+            self.path,
+            None,
+        )
+
+        self.assertEqual(output, "")
+        self.assertIsNone(HOOK.load_state(self.path))
+
+    def test_resume_without_state_marks_old_task_done(self) -> None:
+        outcome = HOOK.handle_session_start(
+            {"reason": "resume"},
+            self.path,
+            None,
+        )
+        output = self.capture(
+            HOOK.handle_user_prompt,
+            {"prompt": "Continue after reconnecting"},
+            self.path,
+            HOOK.load_state(self.path),
+        )
+
+        self.assertEqual(outcome, "non_new_task_ignored")
+        self.assertEqual(output, "")
+        self.assertEqual(HOOK.load_state(self.path)["phase"], "done")
+
+    def test_resume_preserves_pending_title_choice(self) -> None:
+        HOOK.save_state(
+            self.path,
+            {
+                "phase": "awaiting_choice",
+                "initial_prompt": "Name a new task",
+                "candidates": {"A": "Title A", "B": "Title B", "C": "Title C"},
+            },
+        )
+
+        outcome = HOOK.handle_session_start(
+            {"reason": "resume"},
+            self.path,
+            HOOK.load_state(self.path),
+        )
+
+        self.assertEqual(outcome, "active_title_flow_preserved")
+        self.assertEqual(HOOK.load_state(self.path)["phase"], "awaiting_choice")
+
+    def test_compact_and_unknown_start_reasons_fail_closed(self) -> None:
+        for reason in ("compact", "clear", "", "unexpected"):
+            path = Path(self.tempdir.name) / f"{reason or 'missing'}.json"
+            outcome = HOOK.handle_session_start({"reason": reason}, path, None)
+
+            self.assertEqual(outcome, "non_new_task_ignored")
+            self.assertEqual(HOOK.load_state(path)["phase"], "done")
 
     def test_regeneration_uses_same_title_quality_rules(self) -> None:
         context = HOOK.regeneration_context(
@@ -163,6 +224,11 @@ C. 首轮回复自然附带标题选项"""
             "hook_event_name": "UserPromptSubmit",
             "prompt": secret_prompt,
         }
+        start_event = {
+            "session_id": "session-containing-sensitive-id",
+            "hook_event_name": "SessionStart",
+            "reason": "startup",
+        }
         stop_event = {
             "session_id": "session-containing-sensitive-id",
             "hook_event_name": "Stop",
@@ -171,6 +237,8 @@ C. 首轮回复自然附带标题选项"""
             ),
         }
         with mock.patch.dict(os.environ, {"PLUGIN_DATA": str(root)}):
+            with mock.patch.object(HOOK.sys, "stdin", io.StringIO(json.dumps(start_event))):
+                self.capture(HOOK.main)
             with mock.patch.object(HOOK.sys, "stdin", io.StringIO(json.dumps(first_event))):
                 self.capture(HOOK.main)
             with mock.patch.object(HOOK.sys, "stdin", io.StringIO(json.dumps(stop_event))):
@@ -181,9 +249,10 @@ C. 首轮回复自然附带标题选项"""
         self.assertNotIn(secret_prompt, diagnostic)
         self.assertNotIn(secret_title, diagnostic)
         self.assertNotIn("session-containing-sensitive-id", diagnostic)
-        self.assertEqual(records[0]["event"], "UserPromptSubmit")
-        self.assertEqual(records[0]["outcome"], "title_context_injected")
-        self.assertEqual(records[1]["outcome"], "title_candidates_captured")
+        self.assertEqual(records[0]["event"], "SessionStart")
+        self.assertEqual(records[0]["outcome"], "new_task_eligible")
+        self.assertEqual(records[1]["outcome"], "title_context_injected")
+        self.assertEqual(records[2]["outcome"], "title_candidates_captured")
         self.assertTrue(all(len(record["session"]) == 12 for record in records))
 
     def test_diagnostics_rotate_without_interrupting_hooks(self) -> None:
