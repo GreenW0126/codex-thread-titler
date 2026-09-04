@@ -1,6 +1,6 @@
 {
   "name": "codex-thread-titler",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Append three concise title choices to the first Codex answer and rename the task after an explicit A, B, or C choice.",
   "author": {
     "name": "GreenW0126",

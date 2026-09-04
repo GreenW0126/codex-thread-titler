@@ -259,11 +259,14 @@ def handle_session_start(
 ) -> str:
     """Grant title eligibility only to a confirmed new Codex task.
 
-    SessionStart reason ``startup`` is the positive signal for a new task. Resume,
-    clear, compact, missing, and unknown reasons fail closed so an older task is
+    SessionStart source ``startup`` is the positive signal for a new task. Resume,
+    clear, compact, missing, and unknown sources fail closed so an older task is
     never treated as new merely because its plugin state is absent.
     """
-    reason = str(payload.get("reason") or "").strip().lower()
+    # Codex emits SessionStart lifecycle values in ``source``. ``reason`` was
+    # used by an early plugin implementation, so retain it only as a fallback
+    # for compatibility with older or third-party Hook payloads.
+    source = str(payload.get("source") or payload.get("reason") or "").strip().lower()
     phase = state.get("phase") if isinstance(state, dict) else None
 
     if phase in ACTIVE_TITLE_PHASES:
@@ -272,7 +275,7 @@ def handle_session_start(
     if state is not None:
         return "existing_task_ignored"
 
-    if reason == "startup":
+    if source == "startup":
         save_state(path, {"phase": "eligible_new_task"})
         return "new_task_eligible"
 

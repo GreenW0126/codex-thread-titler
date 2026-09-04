@@ -2,6 +2,12 @@
 
 All notable changes to Codex Thread Titler are documented here.
 
+## 0.1.3 - 2026-09-04
+
+- Read the Codex `SessionStart.source` field when distinguishing `startup` from resumed tasks.
+- Keep the former `reason` field as a compatibility fallback only.
+- Add regression tests using the real Codex Hook payload shape and source precedence.
+
 ## 0.1.2 - 2026-08-31
 
 - Generate title choices only after `SessionStart` confirms a new task with the `startup` reason.

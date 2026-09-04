@@ -34,7 +34,7 @@ class ThreadTitlerHookTests(unittest.TestCase):
 
     def test_first_prompt_injects_inline_title_requirement(self) -> None:
         start_outcome = HOOK.handle_session_start(
-            {"reason": "startup"},
+            {"source": "startup"},
             self.path,
             None,
         )
@@ -72,7 +72,7 @@ class ThreadTitlerHookTests(unittest.TestCase):
 
     def test_resume_without_state_marks_old_task_done(self) -> None:
         outcome = HOOK.handle_session_start(
-            {"reason": "resume"},
+            {"source": "resume"},
             self.path,
             None,
         )
@@ -98,7 +98,7 @@ class ThreadTitlerHookTests(unittest.TestCase):
         )
 
         outcome = HOOK.handle_session_start(
-            {"reason": "resume"},
+            {"source": "resume"},
             self.path,
             HOOK.load_state(self.path),
         )
@@ -107,12 +107,30 @@ class ThreadTitlerHookTests(unittest.TestCase):
         self.assertEqual(HOOK.load_state(self.path)["phase"], "awaiting_choice")
 
     def test_compact_and_unknown_start_reasons_fail_closed(self) -> None:
-        for reason in ("compact", "clear", "", "unexpected"):
-            path = Path(self.tempdir.name) / f"{reason or 'missing'}.json"
-            outcome = HOOK.handle_session_start({"reason": reason}, path, None)
+        for source in ("compact", "clear", "", "unexpected"):
+            path = Path(self.tempdir.name) / f"{source or 'missing'}.json"
+            outcome = HOOK.handle_session_start({"source": source}, path, None)
 
             self.assertEqual(outcome, "non_new_task_ignored")
             self.assertEqual(HOOK.load_state(path)["phase"], "done")
+
+    def test_legacy_reason_is_only_a_fallback(self) -> None:
+        fallback_path = Path(self.tempdir.name) / "fallback.json"
+        fallback_outcome = HOOK.handle_session_start(
+            {"reason": "startup"},
+            fallback_path,
+            None,
+        )
+        precedence_path = Path(self.tempdir.name) / "precedence.json"
+        precedence_outcome = HOOK.handle_session_start(
+            {"source": "resume", "reason": "startup"},
+            precedence_path,
+            None,
+        )
+
+        self.assertEqual(fallback_outcome, "new_task_eligible")
+        self.assertEqual(precedence_outcome, "non_new_task_ignored")
+        self.assertEqual(HOOK.load_state(precedence_path)["phase"], "done")
 
     def test_regeneration_uses_same_title_quality_rules(self) -> None:
         context = HOOK.regeneration_context(
@@ -227,7 +245,7 @@ C. 首轮回复自然附带标题选项"""
         start_event = {
             "session_id": "session-containing-sensitive-id",
             "hook_event_name": "SessionStart",
-            "reason": "startup",
+            "source": "startup",
         }
         stop_event = {
             "session_id": "session-containing-sensitive-id",

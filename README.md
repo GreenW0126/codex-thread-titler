@@ -80,7 +80,7 @@ Then start a new task so Codex loads the updated plugin. If the hook definition 
 To install a specific published version, add the Marketplace using a Git tag, for example:
 
 ```bash
-codex plugin marketplace add GreenW0126/codex-thread-titler@v0.1.2
+codex plugin marketplace add GreenW0126/codex-thread-titler@v0.1.3
 codex plugin add codex-thread-titler@greenw0126
 ```
 
@@ -136,7 +136,7 @@ After the first installation—or whenever the hook definition changes—open `/
 - `UserPromptSubmit`
 - `Stop`
 
-`SessionStart` confirms that the task is newly created before title generation is allowed. The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
+`SessionStart` confirms that the task is newly created through `source: startup` before title generation is allowed. The title choices will not appear automatically if `UserPromptSubmit` is disabled. The plugin cannot capture the choices if `Stop` is disabled.
 
 ## Diagnostics
 
@@ -179,7 +179,7 @@ This is a compatibility workaround for behavior observed in existing Codex tasks
 
 ## How it works
 
-- `SessionStart` grants title eligibility only when Codex reports a new task with the `startup` reason.
+- `SessionStart` grants title eligibility only when Codex reports a new task with `source: startup`.
 - Restored, reconnected, cleared, compacted, unknown, and state-less older tasks fail closed without title generation.
 - `UserPromptSubmit` injects the title-generation instruction only for an eligible task's first user message.
 - Codex completes the original request and appends three title choices to the same response.
